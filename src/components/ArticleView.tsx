@@ -1,74 +1,54 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   accentVars,
-  articles,
   formatDate,
-  sortedArticles,
+  type Article,
 } from "../data/articles";
 import { highlightMarkdownSource, renderCached } from "../lib/markdown";
 import Reveal from "./Reveal";
+import TocRail, { useReadingProgress, useScrollSpy } from "./TocRail";
 import {
   IconArrowRight,
   IconBack,
-  IconChevron,
   IconClock,
   IconHash,
   IconTag,
-  IconToc,
+  IconTrash,
   IconWords,
 } from "./icons";
 
 export default function ArticleView({
-  slug,
+  article,
+  entries,
+  isCustom,
   onOpen,
   onBack,
+  onEdit,
+  onDelete,
 }: {
-  slug: string;
+  article: Article;
+  entries: Article[];
+  isCustom: boolean;
   onOpen: (slug: string) => void;
   onBack: () => void;
+  onEdit: (slug: string) => void;
+  onDelete: (slug: string) => void;
 }) {
-  const article = articles.find((a) => a.slug === slug)!;
   const doc = useMemo(() => renderCached(article.slug, article.markdown), [article]);
   const av = accentVars[article.accent];
 
   const [mode, setMode] = useState<"read" | "source">("read");
-  const [activeId, setActiveId] = useState<string>("");
-  const [progress, setProgress] = useState(0);
+  const [confirmDel, setConfirmDel] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
+
+  const progress = useReadingProgress();
+  const activeId = useScrollSpy(mode === "read" ? doc.toc.map((t) => t.id) : []);
 
   /* reset mode when switching articles */
   useEffect(() => {
     setMode("read");
-    setActiveId("");
-  }, [slug]);
-
-  /* reading progress */
-  useEffect(() => {
-    const onScroll = () => {
-      const h = document.documentElement.scrollHeight - window.innerHeight;
-      setProgress(h > 0 ? Math.min(1, window.scrollY / h) : 0);
-    };
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
-
-  /* scrollspy */
-  useEffect(() => {
-    if (mode !== "read") return;
-    const els = doc.toc
-      .map((t) => document.getElementById(t.id))
-      .filter(Boolean) as HTMLElement[];
-    if (!els.length) return;
-    const io = new IntersectionObserver(
-      (entries) => {
-        for (const e of entries) if (e.isIntersecting) setActiveId(e.target.id);
-      },
-      { rootMargin: "-12% 0px -72% 0px", threshold: 0 }
-    );
-    els.forEach((el) => io.observe(el));
-    return () => io.disconnect();
-  }, [doc, mode]);
+    setConfirmDel(false);
+  }, [article.slug]);
 
   /* copy-button delegation over the injected HTML */
   const onContentClick = useCallback((e: React.MouseEvent) => {
@@ -92,16 +72,16 @@ export default function ArticleView({
     [mode, article]
   );
 
-  const idx = sortedArticles.findIndex((a) => a.slug === slug);
-  const newer = idx > 0 ? sortedArticles[idx - 1] : null;
-  const older = idx < sortedArticles.length - 1 ? sortedArticles[idx + 1] : null;
+  const idx = entries.findIndex((a) => a.slug === article.slug);
+  const newer = idx > 0 ? entries[idx - 1] : null;
+  const older = idx < entries.length - 1 ? entries[idx + 1] : null;
 
   return (
     <div className="pb-[clamp(3rem,6vw,5rem)]">
       <div className="progress-bar" style={{ transform: `scaleX(${progress})` }} />
 
       {/* breadcrumb bar */}
-      <div className="pt-6 flex items-center justify-between gap-4">
+      <div className="pt-6 flex flex-wrap items-center justify-between gap-3">
         <button
           onClick={onBack}
           className="group inline-flex items-center gap-2 font-mono text-xs text-faint hover:text-accent-deep transition-colors"
@@ -109,10 +89,31 @@ export default function ArticleView({
           <IconBack size={15} className="transition-transform duration-300 group-hover:-translate-x-1" />
           ~/library
         </button>
-        <span className="font-mono text-xs text-faint truncate">
-          <span className="text-faint/60">entry</span>{" "}
-          <span className="text-accent-deep">{article.slug}.md</span>
-        </span>
+        <div className="flex items-center gap-2.5 min-w-0">
+          <span className="font-mono text-xs text-faint truncate">
+            <span className="text-faint/60">{isCustom ? "yours ·" : "entry"}</span>{" "}
+            <span className="text-accent-deep">{article.slug}.md</span>
+          </span>
+          {isCustom && (
+            <span className="flex items-center gap-1.5 shrink-0">
+              <button className="tbtn" onClick={() => onEdit(article.slug)}>
+                edit
+              </button>
+              <button
+                className={`tbtn ${confirmDel ? "danger" : ""}`}
+                onClick={() => {
+                  if (confirmDel) onDelete(article.slug);
+                  else {
+                    setConfirmDel(true);
+                    window.setTimeout(() => setConfirmDel(false), 2600);
+                  }
+                }}
+              >
+                {confirmDel ? "sure?" : <IconTrash size={13} />}
+              </button>
+            </span>
+          )}
+        </div>
       </div>
 
       {/* header */}
@@ -141,7 +142,7 @@ export default function ArticleView({
         <Reveal delay={90}>
           <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2 font-mono text-xs text-faint border-y border-line py-3">
             <span className="text-ink/85 font-semibold">
-              {article.author}
+              {article.author || "anonymous"}
               <span className="text-faint font-normal"> · {article.role}</span>
             </span>
             <time className="tabular-nums">{formatDate(article.date)}</time>
@@ -178,29 +179,6 @@ export default function ArticleView({
       {/* body: content + toc */}
       <div className="mt-8 grid lg:grid-cols-[minmax(0,1fr)_15.5rem] gap-[clamp(1.5rem,3.5vw,3.5rem)] items-start">
         <div className="min-w-0 max-w-[46rem]">
-          {/* mobile toc */}
-          <details className="toc-mobile lg:hidden mb-6 border border-line rounded-xl bg-surface/80 px-4 py-3">
-            <summary className="flex items-center justify-between font-mono text-xs text-soft">
-              <span className="inline-flex items-center gap-2">
-                <IconToc size={14} className="text-accent-deep" />
-                On this page · {doc.toc.length} headings
-              </span>
-              <IconChevron size={15} className="chev text-faint" />
-            </summary>
-            <nav className="mt-3 pb-1 space-y-1">
-              {doc.toc.map((t) => (
-                <a
-                  key={t.id}
-                  href={`#${t.id}`}
-                  onClick={() => (document.querySelector("details.toc-mobile") as HTMLDetailsElement).removeAttribute("open")}
-                  className={`toc-link ${t.depth === 3 ? "depth-3" : ""} ${activeId === t.id ? "active" : ""}`}
-                >
-                  {t.text}
-                </a>
-              ))}
-            </nav>
-          </details>
-
           {mode === "read" ? (
             <div
               ref={contentRef}
@@ -248,39 +226,13 @@ export default function ArticleView({
           )}
         </div>
 
-        {/* desktop toc */}
         {mode === "read" && (
-          <aside className="hidden lg:block sticky top-24">
-            <div className="border-l border-line">
-              <p className="pl-4 -ml-px mb-3 font-mono text-[10px] tracking-[0.2em] uppercase text-faint flex items-center gap-2">
-                <IconToc size={13} className="text-accent-deep" />
-                On this page
-              </p>
-              <nav className="-ml-px space-y-0.5">
-                {doc.toc.map((t) => (
-                  <a
-                    key={t.id}
-                    href={`#${t.id}`}
-                    className={`toc-link ${t.depth === 3 ? "depth-3" : ""} ${activeId === t.id ? "active" : ""}`}
-                  >
-                    {t.text}
-                  </a>
-                ))}
-              </nav>
-            </div>
-            <div className="mt-6 pl-4 font-mono text-[10px] text-faint space-y-1.5">
-              <p>
-                reading <span className="text-accent-deep tabular-nums">{Math.round(progress * 100)}%</span>
-              </p>
-              <p>{doc.tokens} tokens · {doc.codeLines} loc</p>
-              <button
-                onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-                className="mt-2 inline-flex items-center gap-1.5 text-accent-deep hover:text-accent transition-colors"
-              >
-                ↑ back to top
-              </button>
-            </div>
-          </aside>
+          <TocRail
+            toc={doc.toc}
+            activeId={activeId}
+            progress={progress}
+            meta={`${doc.tokens} tokens · ${doc.codeLines} loc`}
+          />
         )}
       </div>
     </div>

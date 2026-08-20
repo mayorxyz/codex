@@ -1,3 +1,9 @@
+import {
+  plainSearchText,
+  renderCached,
+  type TocItem,
+} from "../lib/markdown";
+
 export type Accent = "teal" | "amber" | "sky";
 
 export interface Article {
@@ -460,13 +466,36 @@ The mental shift is small and total: stop asking "where should this color go?" a
 
 /* ---------- derived helpers ---------- */
 
+export interface EntryCard extends Article {
+  toc: TocItem[];
+  readingTime: number;
+  codeLines: number;
+  words: number;
+}
+
+/** run an article through the pipeline and attach the extracted stats */
+export function enrich(a: Article): EntryCard {
+  const r = renderCached(a.slug, a.markdown);
+  return {
+    ...a,
+    toc: r.toc,
+    readingTime: r.readingTime,
+    codeLines: r.codeLines,
+    words: r.words,
+  };
+}
+
+export function plainBody(md: string): string {
+  return plainSearchText(md);
+}
+
 export const sortedArticles = [...articles].sort(
   (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
 );
 
-export function allTags(): { tag: string; count: number }[] {
+export function allTags(list: Article[] = articles): { tag: string; count: number }[] {
   const map = new Map<string, number>();
-  for (const a of articles)
+  for (const a of list)
     for (const t of a.tags) map.set(t, (map.get(t) ?? 0) + 1);
   return [...map.entries()]
     .map(([tag, count]) => ({ tag, count }))

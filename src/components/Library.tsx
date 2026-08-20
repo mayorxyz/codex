@@ -1,292 +1,370 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   accentVars,
   allTags,
-  articles,
   formatDate,
-  sortedArticles,
+  plainBody,
+  type EntryCard,
 } from "../data/articles";
-import { plainSearchText, renderCached } from "../lib/markdown";
-import Masthead from "./Masthead";
 import Reveal from "./Reveal";
 import {
   IconArrowRight,
+  IconArrowUpRight,
   IconClock,
   IconDoc,
+  IconHash,
   IconSearch,
   IconTag,
-  IconWords,
+  IconTrash,
   IconX,
 } from "./icons";
 
-export default function Library({ onOpen }: { onOpen: (slug: string) => void }) {
-  const [query, setQuery] = useState("");
-  const [tag, setTag] = useState<string | null>(null);
+export default function Library({
+  entries,
+  activeTag,
+  setActiveTag,
+  query,
+  setQuery,
+  onOpen,
+  onCompose,
+  userSlugs,
+  onDelete,
+}: {
+  entries: EntryCard[];
+  activeTag: string | null;
+  setActiveTag: (t: string | null) => void;
+  query: string;
+  setQuery: (q: string) => void;
+  onOpen: (slug: string) => void;
+  onCompose: () => void;
+  userSlugs: Set<string>;
+  onDelete: (slug: string) => void;
+}) {
+  const tags = useMemo(() => allTags(entries), [entries]);
+  const [confirmSlug, setConfirmSlug] = useState<string | null>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
 
-  const tags = useMemo(() => allTags(), []);
+  /* "/" shortcut focuses this from anywhere (App switches view first) */
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "/") {
+        e.preventDefault();
+        searchRef.current?.focus();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return sortedArticles.filter((a) => {
-      if (tag && !a.tags.includes(tag)) return false;
-      if (!q) return true;
-      const hay = `${a.title} ${a.description} ${a.tags.join(" ")} ${a.author} ${plainSearchText(a.markdown)}`;
-      return hay.includes(q);
-    });
-  }, [query, tag]);
+  const results = useMemo(
+    () =>
+      entries.filter((a) => {
+        if (activeTag && !a.tags.includes(activeTag)) return false;
+        if (!query.trim()) return true;
+        const q = query.toLowerCase();
+        return (
+          a.title.toLowerCase().includes(q) ||
+          a.description.toLowerCase().includes(q) ||
+          a.tags.some((t) => t.includes(q)) ||
+          plainBody(a.markdown).includes(q)
+        );
+      }),
+    [entries, activeTag, query]
+  );
 
-  const filtering = query.trim() !== "" || tag !== null;
-  const lead = !filtering ? filtered[0] : null;
-  const rest = lead ? filtered.slice(1) : filtered;
+  const lead = query.trim() || activeTag ? null : results[0];
+  const rest = lead ? results.slice(1) : results;
 
   return (
-    <>
-      <Masthead />
+    <section className="pt-[clamp(1.8rem,4vw,3rem)]">
+      {/* section head */}
+      <div className="flex items-end justify-between gap-4 flex-wrap">
+        <div>
+          <p className="font-mono text-[11px] tracking-[0.22em] uppercase text-accent-deep flex items-center gap-2.5">
+            <span className="inline-block w-8 h-px bg-accent" />
+            The library
+          </p>
+          <h2 className="mt-2 font-display font-bold tracking-[-0.02em] text-[clamp(1.6rem,1.2rem+2vw,2.4rem)]">
+            Entries, compiled fresh.
+          </h2>
+        </div>
+        <button className="btn-primary" onClick={onCompose}>
+          + new entry
+        </button>
+      </div>
 
-      {/* ------- the index ------- */}
-      <section className="pb-[clamp(3rem,7vw,5.5rem)]">
-        <Reveal className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <h2 className="font-display font-bold tracking-[-0.02em] text-[clamp(1.6rem,1.2rem+1.6vw,2.4rem)]">
-              The index
-            </h2>
-            <p className="mt-1 font-mono text-xs text-faint">
-              <span className="text-accent-deep tabular-nums">
-                {String(filtered.length).padStart(2, "0")}
-              </span>{" "}
-              / {String(articles.length).padStart(2, "0")} entries · sorted by recency
-            </p>
-          </div>
-
-          {/* search */}
-          <div className="relative w-full sm:w-[22rem]">
-            <IconSearch size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-faint pointer-events-none" />
-            <input
-              id="kb-search"
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="grep the corpus…"
-              autoComplete="off"
-              className="w-full h-11 pl-10 pr-16 rounded-lg border border-line bg-raised font-mono text-sm text-ink placeholder:text-faint/70 outline-none transition-all duration-200 focus:border-accent focus:ring-2 focus:ring-accent-soft hover:border-faint/60"
-            />
+      {/* controls */}
+      <div className="mt-6 flex flex-col md:flex-row md:items-center gap-3">
+        <div className="relative md:w-[22rem] w-full">
+          <IconSearch
+            size={15}
+            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-faint pointer-events-none"
+          />
+          <input
+            ref={searchRef}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="grep the knowledge base…"
+            className="w-full bg-surface border border-line rounded-lg pl-9.5 pr-16 py-2.5 text-sm outline-none transition-colors duration-200 focus:border-accent placeholder:text-faint/70"
+          />
+          <span className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
             {query ? (
               <button
                 onClick={() => setQuery("")}
-                aria-label="Clear search"
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-faint hover:text-ink transition-colors"
+                className="text-faint hover:text-ink transition-colors pointer-events-auto"
+                aria-label="clear search"
               >
-                <IconX size={15} />
+                <IconX size={13} />
               </button>
             ) : (
-              <span className="kbd absolute right-3 top-1/2 -translate-y-1/2">/</span>
+              <kbd>/</kbd>
             )}
-          </div>
-        </Reveal>
-
-        {/* tag rail */}
-        <Reveal delay={70} className="mt-5 flex flex-wrap items-center gap-2">
-          <IconTag size={14} className="text-faint" />
-          <button
-            onClick={() => setTag(null)}
-            className={`chip ${tag === null ? "chip-on" : ""}`}
-          >
-            all
-          </button>
-          {tags.map((t) => (
+          </span>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          {tags.map(({ tag, count }) => (
             <button
-              key={t.tag}
-              onClick={() => setTag(tag === t.tag ? null : t.tag)}
-              className={`chip ${tag === t.tag ? "chip-on" : ""}`}
+              key={tag}
+              onClick={() => setActiveTag(activeTag === tag ? null : tag)}
+              className={`chip ${activeTag === tag ? "chip-on" : ""}`}
             >
-              {t.tag}
-              <span className="opacity-55 tabular-nums ml-1">{t.count}</span>
+              {tag}
+              <span className="opacity-60 tabular-nums">{count}</span>
             </button>
           ))}
-        </Reveal>
-
-        {/* lead entry */}
-        {lead && (
-          <Reveal delay={100} className="mt-8">
-            <LeadCard slug={lead.slug} onOpen={onOpen} />
-          </Reveal>
-        )}
-
-        {/* grid */}
-        {rest.length > 0 ? (
-          <div className="mt-6 grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(min(100%,20.5rem),1fr))]">
-            {rest.map((a, i) => (
-              <Reveal key={a.slug} delay={(i % 3) * 80}>
-                <EntryCard slug={a.slug} onOpen={onOpen} index={i + (lead ? 2 : 1)} />
-              </Reveal>
-            ))}
-          </div>
-        ) : (
-          !lead && (
-            <div className="mt-10 border border-dashed border-line rounded-xl px-6 py-14 text-center">
-              <p className="font-mono text-sm text-faint">
-                $ codex search "{query || tag}" → <span className="text-warm">0 results</span>
-              </p>
-              <button
-                onClick={() => {
-                  setQuery("");
-                  setTag(null);
-                }}
-                className="mt-4 font-mono text-xs text-accent-deep underline underline-offset-4 hover:text-accent transition-colors"
-              >
-                reset filters
-              </button>
-            </div>
-          )
-        )}
-      </section>
-    </>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-
-function useEntry(slug: string) {
-  const article = articles.find((a) => a.slug === slug)!;
-  const doc = useMemo(() => renderCached(article.slug, article.markdown), [article]);
-  return { article, doc };
-}
-
-function Meta({ slug, className = "" }: { slug: string; className?: string }) {
-  const { article, doc } = useEntry(slug);
-  return (
-    <span className={`inline-flex items-center gap-3 font-mono text-[11px] text-faint ${className}`}>
-      <time className="tabular-nums">{formatDate(article.date)}</time>
-      <span className="inline-flex items-center gap-1">
-        <IconClock size={12} /> {doc.readingTime} min
-      </span>
-      <span className="inline-flex items-center gap-1">
-        <IconWords size={12} /> {doc.words.toLocaleString("en-US")}
-      </span>
-    </span>
-  );
-}
-
-function TagRow({ tags, active }: { tags: string[]; active?: boolean }) {
-  return (
-    <span className="flex flex-wrap gap-1.5">
-      {tags.map((t) => (
-        <span
-          key={t}
-          className={`font-mono text-[10px] tracking-wide px-2 py-0.5 rounded-md border transition-colors ${
-            active
-              ? "border-accent/40 bg-accent-soft text-accent-deep"
-              : "border-line text-faint"
-          }`}
-        >
-          #{t}
-        </span>
-      ))}
-    </span>
-  );
-}
-
-function LeadCard({ slug, onOpen }: { slug: string; onOpen: (s: string) => void }) {
-  const { article, doc } = useEntry(slug);
-  const av = accentVars[article.accent];
-  return (
-    <article
-      onClick={() => onOpen(slug)}
-      onKeyDown={(e) => e.key === "Enter" && onOpen(slug)}
-      tabIndex={0}
-      className="group cursor-pointer grid md:grid-cols-[1.45fr_1fr] border border-line rounded-xl bg-surface/80 overflow-hidden transition-all duration-300 hover:border-accent/60 hover:shadow-[0_22px_50px_-28px_rgba(6,40,28,0.5)] hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-accent"
-    >
-      <div className="p-[clamp(1.2rem,3vw,2rem)] border-b md:border-b-0 md:border-r border-line">
-        <div className="flex items-center gap-3 font-mono text-[10px] tracking-[0.2em] uppercase">
-          <span className="px-2 py-0.5 rounded" style={{ background: av.soft, color: av.c }}>
-            latest entry
-          </span>
-          <span className="text-faint">{article.role}</span>
-        </div>
-        <h3 className="mt-4 font-display font-bold tracking-[-0.02em] leading-[1.06] text-[clamp(1.5rem,1.15rem+1.6vw,2.35rem)]">
-          <span className="link-underline">{article.title}</span>
-        </h3>
-        <p className="mt-3 text-soft leading-relaxed max-w-[46ch]">{article.description}</p>
-        <div className="mt-5 flex items-center justify-between gap-4">
-          <Meta slug={slug} />
-          <span className="inline-flex items-center gap-1.5 font-mono text-xs font-semibold text-accent-deep">
-            open
-            <IconArrowRight size={15} className="transition-transform duration-300 group-hover:translate-x-1.5" />
-          </span>
         </div>
       </div>
-      <div className="p-[clamp(1.2rem,3vw,2rem)] flex flex-col justify-between gap-6 bg-raised/60">
-        <div>
-          <p className="font-mono text-[10px] tracking-[0.2em] uppercase text-faint">table of contents</p>
-          <ul className="mt-3 space-y-1.5">
-            {doc.toc.slice(0, 5).map((h) => (
-              <li key={h.id} className="flex items-baseline gap-2 text-[13px] text-soft">
-                <span className="font-mono text-[10px] text-accent-deep shrink-0">
-                  {h.depth === 2 ? "§" : "··"}
+
+      {/* results meta */}
+      <p className="mt-5 font-mono text-[11px] text-faint tabular-nums">
+        {results.length} {results.length === 1 ? "entry" : "entries"}
+        {activeTag && (
+          <>
+            {" "}tagged <span className="text-accent-deep">#{activeTag}</span>
+          </>
+        )}
+        {query.trim() && (
+          <>
+            {" "}matching <span className="text-accent-deep">“{query.trim()}”</span>
+          </>
+        )}
+        <span className="opacity-60"> · sorted newest first</span>
+      </p>
+
+      {/* lead entry */}
+      {lead && (
+        <Reveal className="mt-6">
+          <article
+            className="group relative cursor-pointer border border-line rounded-xl bg-surface/80 overflow-hidden transition-all duration-300 hover:border-accent/70 hover:shadow-[0_18px_50px_-24px_rgba(10,20,14,0.35)] hover:-translate-y-0.5"
+            onClick={() => onOpen(lead.slug)}
+          >
+            <div
+              className="absolute inset-y-0 left-0 w-[3px]"
+              style={{ background: accentVars[lead.accent].c }}
+            />
+            <div className="grid md:grid-cols-[1.5fr_1fr] gap-6 p-[clamp(1.25rem,3vw,2.25rem)] pl-[clamp(1.5rem,3vw,2.5rem)]">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-mono text-[10px] tracking-[0.2em] uppercase text-faint">
+                    entry 01 · latest
+                  </span>
+                  <span
+                    className="font-mono text-[10px] tracking-[0.18em] uppercase px-1.5 py-0.5 rounded"
+                    style={{
+                      background: accentVars[lead.accent].soft,
+                      color: accentVars[lead.accent].c,
+                    }}
+                  >
+                    {lead.role}
+                  </span>
+                  {userSlugs.has(lead.slug) && <span className="chip chip-mine">yours</span>}
+                </div>
+                <h3 className="mt-3 font-display font-bold tracking-[-0.02em] leading-[1.08] text-[clamp(1.4rem,1.1rem+1.6vw,2.1rem)]">
+                  <span className="underline-grow">{lead.title}</span>
+                </h3>
+                <p className="mt-3 text-soft leading-relaxed text-[0.98rem] max-w-[36rem]">
+                  {lead.description}
+                </p>
+                <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2 font-mono text-[11px] text-faint">
+                  <span className="text-ink/80">{lead.author}</span>
+                  <time>{formatDate(lead.date)}</time>
+                  <span className="inline-flex items-center gap-1">
+                    <IconClock size={12} /> {lead.readingTime} min
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <IconHash size={12} /> {lead.codeLines} loc
+                  </span>
+                </div>
+              </div>
+              <div className="hidden md:flex flex-col justify-between gap-4 border-l border-line pl-6">
+                <div>
+                  <p className="font-mono text-[10px] tracking-[0.2em] uppercase text-faint mb-2.5">
+                    indexed as
+                  </p>
+                  <ul className="space-y-1.5">
+                    {lead.toc.slice(0, 5).map((t) => (
+                      <li
+                        key={t.id}
+                        className={`font-mono text-[11px] text-soft/90 truncate ${
+                          t.depth === 3 ? "pl-4" : ""
+                        }`}
+                      >
+                        <span className="text-accent-deep mr-1.5 select-none">
+                          {t.depth === 3 ? "·" : "§"}
+                        </span>
+                        {t.text}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {lead.tags.map((t) => (
+                    <span key={t} className="chip">
+                      {t}
+                    </span>
+                  ))}
+                </div>
+                <span className="inline-flex items-center gap-1.5 font-mono text-xs text-accent-deep group-hover:gap-3 transition-all duration-300">
+                  open entry <IconArrowRight size={14} />
                 </span>
-                <span className="truncate">{h.text}</span>
-              </li>
-            ))}
-          </ul>
+              </div>
+            </div>
+            {userSlugs.has(lead.slug) && (
+              <DeleteBtn
+                slug={lead.slug}
+                confirm={confirmSlug}
+                setConfirm={setConfirmSlug}
+                onDelete={onDelete}
+                className="top-4 right-4"
+              />
+            )}
+          </article>
+        </Reveal>
+      )}
+
+      {/* grid */}
+      {rest.length > 0 ? (
+        <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3 [grid-template-columns:repeat(auto-fill,minmax(min(17.5rem,100%),1fr))]">
+          {rest.map((a, i) => {
+            const av = accentVars[a.accent];
+            return (
+              <Reveal key={a.slug} delay={Math.min(i, 5) * 60}>
+                <article
+                  className="group relative h-full cursor-pointer border border-line rounded-xl bg-surface/80 p-5 transition-all duration-300 hover:border-accent/70 hover:-translate-y-1 hover:shadow-[0_16px_44px_-22px_rgba(10,20,14,0.35)] flex flex-col"
+                  onClick={() => onOpen(a.slug)}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="font-mono text-[10px] tracking-[0.18em] uppercase text-faint">
+                      № {String(entries.indexOf(a) + 1).padStart(2, "0")} ·{" "}
+                      <time>{formatDate(a.date)}</time>
+                    </span>
+                    <IconArrowUpRight
+                      size={15}
+                      className="text-faint opacity-0 -translate-x-1 translate-y-1 group-hover:opacity-100 group-hover:translate-x-0 group-hover:translate-y-0 transition-all duration-300"
+                    />
+                  </div>
+                  <h3 className="mt-3 font-display font-semibold leading-snug text-[1.12rem]">
+                    <span className="underline-grow">{a.title}</span>
+                  </h3>
+                  <p className="mt-2 text-[0.875rem] leading-relaxed text-soft line-clamp-3">
+                    {a.description}
+                  </p>
+                  <div className="mt-auto pt-4 flex items-center justify-between gap-2 border-t border-line/70 mt-4">
+                    <div className="flex flex-wrap gap-1.5 min-w-0">
+                      {a.tags.slice(0, 3).map((t) => (
+                        <span key={t} className="chip">
+                          {t}
+                        </span>
+                      ))}
+                      {userSlugs.has(a.slug) && <span className="chip chip-mine">yours</span>}
+                    </div>
+                    <span
+                      className="inline-flex items-center gap-1 font-mono text-[11px] text-faint whitespace-nowrap"
+                      style={{ color: av.c }}
+                    >
+                      <IconClock size={12} /> {a.readingTime} min
+                    </span>
+                  </div>
+                  {userSlugs.has(a.slug) && (
+                    <DeleteBtn
+                      slug={a.slug}
+                      confirm={confirmSlug}
+                      setConfirm={setConfirmSlug}
+                      onDelete={onDelete}
+                      className="top-3.5 right-3.5"
+                    />
+                  )}
+                </article>
+              </Reveal>
+            );
+          })}
         </div>
-        <div className="flex items-center justify-between gap-3">
-          <TagRow tags={article.tags} />
-          <span className="font-mono text-[10px] text-faint whitespace-nowrap">
-            {doc.tokens} tokens
-          </span>
-        </div>
-      </div>
-    </article>
+      ) : (
+        !lead && (
+          <div className="mt-10 border border-dashed border-line rounded-xl py-14 text-center">
+            <IconDoc size={28} className="mx-auto text-faint" />
+            <p className="mt-3 font-mono text-sm text-faint">
+              nothing in the index matches that
+            </p>
+            <button
+              className="mt-4 font-mono text-xs text-accent-deep hover:text-accent transition-colors"
+              onClick={() => {
+                setQuery("");
+                setActiveTag(null);
+              }}
+            >
+              clear filters ↺
+            </button>
+          </div>
+        )
+      )}
+
+      {results.length === 0 && userSlugs.size === 0 && (
+        <p className="mt-4 font-mono text-[11px] text-faint text-center">
+          tip: press <kbd>+</kbd>… actually, click <span className="text-accent-deep">+ new entry</span> to start your own shelf
+        </p>
+      )}
+    </section>
   );
 }
 
-function EntryCard({
+function DeleteBtn({
   slug,
-  onOpen,
-  index,
+  confirm,
+  setConfirm,
+  onDelete,
+  className,
 }: {
   slug: string;
-  onOpen: (s: string) => void;
-  index: number;
+  confirm: string | null;
+  setConfirm: (s: string | null) => void;
+  onDelete: (slug: string) => void;
+  className: string;
 }) {
-  const { article } = useEntry(slug);
-  const av = accentVars[article.accent];
+  const [armed, setArmed] = useState(false);
+  useEffect(() => {
+    if (!armed) return;
+    const t = window.setTimeout(() => setArmed(false), 2600);
+    return () => window.clearTimeout(t);
+  }, [armed]);
+
   return (
-    <article
-      onClick={() => onOpen(slug)}
-      onKeyDown={(e) => e.key === "Enter" && onOpen(slug)}
-      tabIndex={0}
-      className="group cursor-pointer h-full flex flex-col border border-line rounded-xl bg-surface/80 p-5 transition-all duration-300 hover:-translate-y-1 hover:border-transparent hover:shadow-[0_20px_44px_-26px_rgba(6,40,28,0.55)] focus-visible:outline-2 focus-visible:outline-accent relative overflow-hidden"
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        if (armed) {
+          onDelete(slug);
+          setArmed(false);
+        } else setArmed(true);
+      }}
+      title={armed ? "click again to delete" : "delete entry"}
+      className={`absolute ${className} z-10 inline-flex items-center gap-1.5 rounded-md border px-2 py-1 font-mono text-[10px] transition-all duration-200 ${
+        armed
+          ? "border-danger/60 bg-danger/10 text-danger"
+          : "border-line bg-surface text-faint hover:text-danger hover:border-danger/50"
+      } ${confirm ? "" : ""}`}
     >
-      <span
-        className="absolute left-0 top-0 bottom-0 w-[3px] origin-top scale-y-0 transition-transform duration-300 group-hover:scale-y-100"
-        style={{ background: av.c }}
-      />
-      <div className="flex items-center justify-between font-mono text-[11px] text-faint">
-        <span className="tabular-nums" style={{ color: av.c }}>
-          {String(index).padStart(2, "0")}
-        </span>
-        <span className="flex items-center gap-1.5">
-          <IconDoc size={13} />
-          {article.role}
-        </span>
-      </div>
-      <h3 className="mt-3 font-display font-semibold tracking-[-0.015em] leading-snug text-[1.18rem]">
-        <span className="link-underline">{article.title}</span>
-      </h3>
-      <p className="mt-2 text-[0.92rem] text-soft leading-relaxed line-clamp-3">
-        {article.description}
-      </p>
-      <div className="mt-auto pt-5 flex items-end justify-between gap-3">
-        <div className="space-y-2.5">
-          <TagRow tags={article.tags} />
-          <Meta slug={slug} />
-        </div>
-        <IconArrowRight
-          size={16}
-          className="shrink-0 text-faint transition-all duration-300 group-hover:text-accent-deep group-hover:translate-x-1"
-        />
-      </div>
-    </article>
+      {armed ? "sure?" : <IconTrash size={12} />}
+    </button>
   );
 }

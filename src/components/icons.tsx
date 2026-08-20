@@ -126,3 +126,21 @@ export const IconPlay = (p: P) =>
 
 export const IconWords = (p: P) =>
   base(p, <><path d="M4 6h16M4 10.5h16M4 15h10M4 19.5h6" /></>);
+
+export const IconTrash = (p: P) =>
+  base(
+    p,
+    <>
+      <path d="M4 6.5h16M9.5 3.5h5M6 6.5l.8 13a1.6 1.6 0 0 0 1.6 1.5h7.2a1.6 1.6 0 0 0 1.6-1.5l.8-13" />
+      <path d="M10 10.5v6M14 10.5v6" />
+    </>
+  );
+
+export const IconUpload = (p: P) =>
+  base(
+    p,
+    <>
+      <path d="M12 15V4.5M7.5 9 12 4.5 16.5 9" />
+      <path d="M4.5 15.5v3a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-3" />
+    </>
+  );

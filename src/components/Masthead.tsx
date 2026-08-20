@@ -1,6 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { articles, allTags, sortedArticles } from "../data/articles";
-import { renderCached } from "../lib/markdown";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { allTags, type EntryCard } from "../data/articles";
 
 /* ---------------- typed terminal ---------------- */
 
@@ -9,6 +8,7 @@ const SCRIPT = [
   { cmd: "codex open backpressure-streams.md", out: "41 tokens → HTML in 0.9 ms · ToC: 5 headings" },
   { cmd: "codex build --all", out: "5 sources · 5 unchanged → cache hits · 38 µs" },
   { cmd: "codex toc --depth 3", out: "21 headings indexed · scrollspy armed" },
+  { cmd: "codex import notes/*.md", out: "frontmatter parsed · tags merged · filed to your shelf" },
 ];
 
 function Terminal() {
@@ -116,21 +116,22 @@ function Ticker() {
 
 /* ---------------- masthead ---------------- */
 
-export default function Masthead() {
-  const stats = useRef<{ words: number; minutes: number } | null>(null);
-  if (!stats.current) {
+export default function Masthead({ entries }: { entries: EntryCard[] }) {
+  const stats = useMemo(() => {
     let words = 0;
     let minutes = 0;
-    for (const a of articles) {
-      const r = renderCached(a.slug, a.markdown);
-      words += r.words;
-      minutes += r.readingTime;
+    for (const a of entries) {
+      words += a.words;
+      minutes += a.readingTime;
     }
-    stats.current = { words, minutes };
-  }
+    return { words, minutes };
+  }, [entries]);
 
-  const newest = sortedArticles[0].date;
-  const tagCount = allTags().length;
+  const newest = entries.reduce(
+    (max, a) => (a.date > max ? a.date : max),
+    entries[0]?.date ?? "2026-01-01"
+  );
+  const tagCount = allTags(entries).length;
 
   return (
     <section className="pt-[clamp(2.2rem,6vw,4.5rem)] pb-[clamp(2rem,5vw,3.5rem)]">
@@ -190,10 +191,10 @@ export default function Masthead() {
       {/* stats strip */}
       <dl className="mt-[clamp(2.2rem,5vw,3.6rem)] grid grid-cols-2 md:grid-cols-4 border border-line rounded-xl bg-surface/80 overflow-hidden">
         {[
-          { label: "entries", value: String(articles.length).padStart(2, "0") },
+          { label: "entries", value: String(entries.length).padStart(2, "0") },
           { label: "tags indexed", value: String(tagCount).padStart(2, "0") },
-          { label: "words in corpus", value: stats.current.words.toLocaleString("en-US") },
-          { label: "min of reading", value: `~${stats.current.minutes}` },
+          { label: "words in corpus", value: stats.words.toLocaleString("en-US") },
+          { label: "min of reading", value: `~${stats.minutes}` },
         ].map((s, i) => (
           <div
             key={s.label}

@@ -58,7 +58,7 @@ function stripInline(md: string): string {
     .trim();
 }
 
-function slugify(s: string): string {
+export function slugify(s: string): string {
   return (
     s
       .toLowerCase()
@@ -204,4 +204,73 @@ export function renderCached(key: string, md: string): RenderResult {
     cache.set(key, r);
   }
   return r;
+}
+
+/* ------------------------------------------------------------------ */
+/* frontmatter — for imported files                                    */
+/* ------------------------------------------------------------------ */
+
+export interface ParsedFile {
+  meta: {
+    title?: string;
+    description?: string;
+    date?: string;
+    author?: string;
+    role?: string;
+    accent?: "teal" | "amber" | "sky";
+    tags: string[];
+  };
+  body: string;
+}
+
+/** Tolerant YAML-subset frontmatter parser: `--- … ---` block at top of file. */
+export function parseFrontmatter(raw: string): ParsedFile {
+  const meta: ParsedFile["meta"] = { tags: [] };
+  let body = raw.replace(/^\uFEFF/, "");
+
+  const m = body.match(/^---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*\r?\n?/);
+  if (m) {
+    const lines = m[1].split(/\r?\n/);
+    let listKey: string | null = null;
+    for (const line of lines) {
+      const list = line.match(/^\s+-\s+(.*)$/);
+      if (list && listKey) {
+        if (listKey === "tags") meta.tags.push(cleanVal(list[1]));
+        continue;
+      }
+      listKey = null;
+      const kv = line.match(/^([A-Za-z][\w-]*)\s*:\s*(.*)$/);
+      if (!kv) continue;
+      const key = kv[1].toLowerCase();
+      const val = cleanVal(kv[2]);
+      if (key === "tags") {
+        const bracket = kv[2].match(/^\[(.*)\]$/);
+        const src = bracket ? bracket[1] : kv[2];
+        if (src.trim()) meta.tags = src.split(",").map(cleanVal).filter(Boolean);
+        else listKey = "tags";
+      } else if (key === "accent" && /^(teal|amber|sky)$/i.test(val)) {
+        meta.accent = val.toLowerCase() as ParsedFile["meta"]["accent"];
+      } else if (key in meta) {
+        (meta as Record<string, unknown>)[key] = val;
+      }
+    }
+    body = body.slice(m[0].length);
+  } else {
+    /* no frontmatter — title from first heading or first non-empty line */
+    const heading = body.match(/^#\s+(.+)$/m);
+    const firstLine = body.match(/^[ \t]*([^\s#].*)$/m);
+    meta.title = heading?.[1] ?? firstLine?.[1];
+    if (heading) body = body.replace(heading[0], "").replace(/^\s+/, "");
+  }
+
+  meta.tags = meta.tags
+    .map((t) => t.replace(/^#/, "").toLowerCase())
+    .filter(Boolean)
+    .slice(0, 8);
+  if (meta.date && !/^\d{4}-\d{2}-\d{2}$/.test(meta.date)) meta.date = undefined;
+  return { meta, body: body.trim() };
+}
+
+function cleanVal(s: string): string {
+  return s.trim().replace(/^["']|["']$/g, "");
 }
