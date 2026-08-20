@@ -82,7 +82,6 @@ export default function Composer({
     [tagsInput]
   );
 
-  /* live pipeline run over the draft body */
   const preview = useMemo(() => {
     const t0 = performance.now();
     const doc = markdown.trim() ? renderMarkdown(markdown) : null;
@@ -116,7 +115,6 @@ export default function Composer({
       return;
     }
     if (files.length === 1) {
-      /* single file → load into the form for review before saving */
       const parsed = parseFrontmatter(await files[0].text());
       const base = files[0].name.replace(/\.[^.]+$/, "");
       setTitle(parsed.meta.title ?? base);
@@ -131,7 +129,6 @@ export default function Composer({
       setTab("write");
       onToast(`imported ${files[0].name} — review & save`);
     } else {
-      /* many files → each becomes an entry immediately */
       const taken = new Set(allSlugs);
       let made = 0;
       for (const f of files) {
@@ -185,14 +182,15 @@ export default function Composer({
       <div className="pt-6 flex flex-wrap items-center justify-between gap-3">
         <button
           onClick={onCancel}
-          className="group inline-flex items-center gap-2 font-mono text-xs text-faint hover:text-accent-deep transition-colors"
+          className="group inline-flex items-center gap-2 font-mono text-xs text-faint hover:text-accent-deep transition-colors min-h-[44px]"
         >
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="transition-transform duration-300 group-hover:-translate-x-1">
             <path d="M19 12H5M11 18l-6-6 6-6" />
           </svg>
           ~/library
         </button>
-        <span className="font-mono text-xs text-faint">
+        {/* Hidden on mobile to prevent awkward wrapping */}
+        <span className="hidden sm:inline font-mono text-xs text-faint">
           {editing ? (
             <>
               editing <span className="text-accent-deep">{editing.slug}.md</span>
@@ -217,13 +215,13 @@ export default function Composer({
         </p>
       </header>
 
-      {/* mobile tab switch */}
-      <div className="mt-6 lg:hidden inline-flex border border-line rounded-lg p-1 bg-surface">
+      {/* mobile tab switch - full width & larger touch targets */}
+      <div className="mt-6 lg:hidden flex border border-line rounded-lg p-1 bg-surface">
         {(["write", "preview"] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
-            className={`px-4 py-1.5 rounded-md font-mono text-[11px] transition-all ${
+            className={`flex-1 px-4 py-3 rounded-md font-mono text-xs transition-all ${
               tab === t
                 ? "bg-ink text-paper dark:bg-accent dark:text-paper"
                 : "text-faint hover:text-ink"
@@ -258,10 +256,10 @@ export default function Composer({
             <IconUpload size={20} className="shrink-0" />
             <div className="text-left">
               <p className="font-mono text-xs text-ink/85">
-                {dragOver ? "release to import" : "drop .md files here, or click to browse"}
+                {dragOver ? "release to import" : "drop .md files here, or tap to browse"}
               </p>
               <p className="font-mono text-[10px] text-faint mt-0.5">
-                frontmatter parsed automatically · one file → review first · many → imported directly
+                frontmatter parsed automatically
               </p>
             </div>
             <input
@@ -280,8 +278,9 @@ export default function Composer({
           {/* metadata */}
           <div className="grid sm:grid-cols-2 gap-4">
             <Field label="title" required error={errors.title}>
+              {/* text-base prevents iOS Safari from zooming on focus */}
               <input
-                className="field"
+                className="field text-base"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="What you learned, in one line"
@@ -290,7 +289,7 @@ export default function Composer({
             </Field>
             <Field label="date">
               <input
-                className="field"
+                className="field text-base"
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
@@ -298,7 +297,7 @@ export default function Composer({
             </Field>
             <Field label="author">
               <input
-                className="field"
+                className="field text-base"
                 value={author}
                 onChange={(e) => setAuthor(e.target.value)}
                 placeholder="you"
@@ -306,7 +305,7 @@ export default function Composer({
             </Field>
             <Field label="role / section">
               <input
-                className="field"
+                className="field text-base"
                 value={role}
                 onChange={(e) => setRole(e.target.value)}
                 placeholder="e.g. Systems, Tooling"
@@ -314,7 +313,7 @@ export default function Composer({
             </Field>
             <Field label="tags (comma separated)" className="sm:col-span-2">
               <input
-                className="field"
+                className="field text-base"
                 value={tagsInput}
                 onChange={(e) => setTagsInput(e.target.value)}
                 placeholder="streams, debugging, postmortem"
@@ -331,7 +330,7 @@ export default function Composer({
             </Field>
             <Field label="description (shown on the card)" className="sm:col-span-2">
               <textarea
-                className="field resize-y"
+                className="field resize-y text-base"
                 rows={2}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
@@ -344,7 +343,7 @@ export default function Composer({
                   <button
                     key={a.id}
                     onClick={() => setAccent(a.id)}
-                    className={`swatch ${accent === a.id ? "on" : ""}`}
+                    className={`swatch min-w-[40px] min-h-[40px] ${accent === a.id ? "on" : ""}`}
                     style={{ background: a.color }}
                     title={a.label}
                     aria-label={a.label}
@@ -356,26 +355,27 @@ export default function Composer({
 
           {/* editor */}
           <div>
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between mb-2">
               <span className="font-mono text-[10px] tracking-[0.18em] uppercase text-faint">
                 body · markdown
               </span>
-              <div className="flex gap-1">
-                {SNIPPETS.map((s) => (
-                  <button
-                    key={s.label}
-                    onClick={() => insert(s.before, s.after)}
-                    className="tbtn"
-                    title={`insert ${s.label}`}
-                  >
-                    {s.label}
-                  </button>
-                ))}
-              </div>
+            </div>
+            {/* Horizontal scrolling snippet toolbar for mobile */}
+            <div className="flex gap-1.5 overflow-x-auto pb-2 -mb-2 snap-x snap-mandatory">
+              {SNIPPETS.map((s) => (
+                <button
+                  key={s.label}
+                  onClick={() => insert(s.before, s.after)}
+                  className="tbtn min-h-[40px] px-3 shrink-0 snap-start"
+                  title={`insert ${s.label}`}
+                >
+                  {s.label}
+                </button>
+              ))}
             </div>
             <textarea
               ref={taRef}
-              className={`editor ${errors.body ? "invalid" : ""}`}
+              className={`editor text-base min-h-[300px] mt-3 ${errors.body ? "invalid" : ""}`}
               value={markdown}
               onChange={(e) => setMarkdown(e.target.value)}
               spellCheck={false}
@@ -386,16 +386,17 @@ export default function Composer({
             )}
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            <button className="btn-primary" onClick={save}>
+          {/* Stacks vertically on mobile for easier tapping */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            <button className="btn-primary py-3 sm:py-2" onClick={save}>
               {editing ? "save changes → recompile" : "save entry → compile"}
             </button>
-            <button className="btn-ghost" onClick={onCancel}>
+            <button className="btn-ghost py-3 sm:py-2" onClick={onCancel}>
               discard
             </button>
-            <span className="font-mono text-[11px] text-faint ml-auto tabular-nums">
+            <span className="font-mono text-[11px] text-faint sm:ml-auto tabular-nums text-center sm:text-right">
               {markdown.length.toLocaleString("en-US")} chars · will ship as{" "}
-              <span className="text-accent-deep">{slugPreview}.md</span>
+              <span className="text-accent-deep break-all">{slugPreview}.md</span>
             </span>
           </div>
         </div>
@@ -406,14 +407,15 @@ export default function Composer({
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5 border-b border-line bg-surface font-mono text-[10px] tracking-wide text-faint">
               <span className="inline-flex items-center gap-1.5 text-accent-deep">
                 <i className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
-                live pipeline
+                live
               </span>
               {preview.doc && (
                 <>
                   <span className="tabular-nums">{preview.doc.tokens} tokens</span>
                   <span className="tabular-nums">{preview.doc.toc.length} headings</span>
-                  <span className="tabular-nums">{preview.doc.readingTime} min read</span>
-                  <span className="tabular-nums text-accent-deep">
+                  <span className="tabular-nums">{preview.doc.readingTime} min</span>
+                  {/* Hide render time on mobile to save space */}
+                  <span className="hidden sm:inline tabular-nums text-accent-deep">
                     {preview.ms < 0.1 ? "<0.1" : preview.ms.toFixed(1)} ms
                   </span>
                 </>
@@ -430,7 +432,7 @@ export default function Composer({
                 </article>
               </div>
             ) : (
-              <div className="preview-scroll grid place-items-center">
+              <div className="preview-scroll grid place-items-center min-h-[200px]">
                 <p className="font-mono text-xs text-faint">
                   write something — output appears here
                 </p>
@@ -447,7 +449,7 @@ export default function Composer({
             <h2 className="font-display font-semibold text-lg">
               Your drafts{" "}
               <span className="font-mono text-xs text-faint font-normal">
-                · {userEntries.length} stored in this browser
+                · {userEntries.length} stored
               </span>
             </h2>
             <button
@@ -464,7 +466,7 @@ export default function Composer({
             {userEntries.map((e) => (
               <li
                 key={e.slug}
-                className="flex items-center gap-3 px-4 py-3 hover:bg-surface transition-colors"
+                className="flex items-center gap-3 px-4 py-4 hover:bg-surface transition-colors"
               >
                 <span
                   className="w-2 h-2 rounded-full shrink-0"
@@ -485,37 +487,41 @@ export default function Composer({
                     {e.title}
                   </span>
                   <span className="block font-mono text-[10px] text-faint truncate">
-                    {e.slug}.md · {e.date} · {e.tags.map((t) => `#${t}`).join(" ")}
+                    {e.slug}.md · {e.date}
+                    {/* Hide tags on mobile to prevent overflow */}
+                    <span className="hidden sm:inline"> · {e.tags.map((t) => `#${t}`).join(" ")}</span>
                   </span>
                 </button>
-                <button
-                  className="tbtn"
-                  title="edit"
-                  onClick={() => {
-                    window.scrollTo({ top: 0 });
-                    onEdit(e.slug);
-                  }}
-                >
-                  edit
-                </button>
-                <button
-                  className={`tbtn ${confirmSlug === e.slug ? "danger" : ""}`}
-                  title="delete"
-                  onClick={() => {
-                    if (confirmSlug === e.slug) {
-                      onDelete(e.slug);
-                      setConfirmSlug(null);
-                    } else {
-                      setConfirmSlug(e.slug);
-                      window.setTimeout(
-                        () => setConfirmSlug((s) => (s === e.slug ? null : s)),
-                        2600
-                      );
-                    }
-                  }}
-                >
-                  {confirmSlug === e.slug ? "sure?" : <IconTrash size={13} />}
-                </button>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button
+                    className="tbtn min-w-[40px] min-h-[40px] flex items-center justify-center"
+                    title="edit"
+                    onClick={() => {
+                      window.scrollTo({ top: 0 });
+                      onEdit(e.slug);
+                    }}
+                  >
+                    edit
+                  </button>
+                  <button
+                    className={`tbtn min-w-[40px] min-h-[40px] flex items-center justify-center ${confirmSlug === e.slug ? "danger" : ""}`}
+                    title="delete"
+                    onClick={() => {
+                      if (confirmSlug === e.slug) {
+                        onDelete(e.slug);
+                        setConfirmSlug(null);
+                      } else {
+                        setConfirmSlug(e.slug);
+                        window.setTimeout(
+                          () => setConfirmSlug((s) => (s === e.slug ? null : s)),
+                          2600
+                        );
+                      }
+                    }}
+                  >
+                    {confirmSlug === e.slug ? "sure?" : <IconTrash size={13} />}
+                  </button>
+                </div>
               </li>
             ))}
           </ul>

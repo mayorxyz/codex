@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type MouseEvent } from "react";
 import type { TocItem } from "../lib/markdown";
 import { IconChevron, IconToc } from "./icons";
 
@@ -52,6 +52,32 @@ export default function TocRail({
   meta?: string;
   title?: string;
 }) {
+  const handleLinkClick = (
+    e: MouseEvent<HTMLAnchorElement>,
+    id: string,
+    isMobile = false
+  ) => {
+    // 1. Prevent the router from hijacking the #hash link and navigating away
+    e.preventDefault(); 
+    
+    const el = document.getElementById(id);
+    if (el) {
+      // 2. Manually smooth scroll to the target section
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+      
+      // 3. Update the URL hash so users can copy/share the link
+      window.history.pushState(null, "", `#${id}`);
+    }
+    
+    // 4. Close the mobile dropdown if it was triggered from the mobile TOC
+    if (isMobile) {
+      const details = document.querySelector(
+        "details.toc-mobile"
+      ) as HTMLDetailsElement;
+      if (details) details.removeAttribute("open");
+    }
+  };
+
   return (
     <>
       {/* mobile */}
@@ -68,11 +94,7 @@ export default function TocRail({
             <a
               key={t.id}
               href={`#${t.id}`}
-              onClick={() =>
-                (
-                  document.querySelector("details.toc-mobile") as HTMLDetailsElement
-                )?.removeAttribute("open")
-              }
+              onClick={(e) => handleLinkClick(e, t.id, true)}
               className={`toc-link ${t.depth === 3 ? "depth-3" : ""} ${
                 activeId === t.id ? "active" : ""
               }`}
@@ -95,6 +117,7 @@ export default function TocRail({
               <a
                 key={t.id}
                 href={`#${t.id}`}
+                onClick={(e) => handleLinkClick(e, t.id, false)}
                 className={`toc-link ${t.depth === 3 ? "depth-3" : ""} ${
                   activeId === t.id ? "active" : ""
                 }`}

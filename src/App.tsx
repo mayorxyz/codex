@@ -192,16 +192,16 @@ export default function App() {
       {/* ---------------- header ---------------- */}
       <header className="sticky top-0 z-40 border-b border-line/80 bg-paper/85 backdrop-blur-md">
         <div className="mx-auto max-w-[82rem] px-[clamp(1.1rem,4.5vw,3.25rem)]">
-          <div className="flex items-center justify-between h-16">
+          <div className="flex items-center justify-between h-14 sm:h-16">
             <button
               onClick={() => navigate({ view: "library" })}
-              className="group flex items-center gap-2.5"
+              className="group flex items-center gap-2 sm:gap-2.5 min-h-[44px]"
               aria-label="codex home"
             >
               <span className="w-8 h-8 rounded-lg bg-ink text-paper dark:bg-accent dark:text-paper grid place-items-center transition-transform duration-300 group-hover:rotate-[-6deg] group-hover:scale-105">
                 <IconBrackets size={17} />
               </span>
-              <span className="font-display font-bold text-lg tracking-tight">
+              <span className="font-display font-bold text-base sm:text-lg tracking-tight">
                 codex<span className="text-accent">.</span>
               </span>
               <span className="hidden sm:inline font-mono text-[10px] text-faint tracking-[0.16em] uppercase mt-0.5">
@@ -226,7 +226,7 @@ export default function App() {
                   <button
                     key={item.view}
                     onClick={() => navigate({ view: item.view } as Route)}
-                    className={`relative hidden xs:inline-flex sm:inline-flex items-center gap-1.5 font-mono text-xs px-3 py-1.5 rounded-md transition-colors duration-200 ${
+                    className={`relative hidden sm:inline-flex items-center gap-1.5 font-mono text-xs px-3 py-1.5 rounded-md transition-colors duration-200 min-h-[44px] ${
                       active ? "text-accent-deep" : "text-faint hover:text-ink"
                     }`}
                   >
@@ -239,14 +239,14 @@ export default function App() {
                 );
               })}
 
-              <button onClick={compose} className="btn-primary py-2! ml-1 sm:ml-2">
+              <button onClick={compose} className="btn-primary py-2! sm:py-2! min-h-[44px] ml-1 sm:ml-2 px-3 sm:px-4">
                 <span className="text-[14px] leading-none">+</span>
                 <span className="hidden sm:inline">new entry</span>
               </button>
 
               <button
                 onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
-                className="theme-toggle relative w-9 h-9 grid place-items-center rounded-lg border border-line text-soft hover:text-accent-deep hover:border-accent/60 transition-colors duration-200"
+                className="theme-toggle relative w-11 h-11 sm:w-9 sm:h-9 grid place-items-center rounded-lg border border-line text-soft hover:text-accent-deep hover:border-accent/60 transition-colors duration-200"
                 aria-label="toggle dark mode"
                 title="toggle dark mode (d)"
               >
@@ -313,7 +313,7 @@ export default function App() {
         {route.view === "guide" && <Guide onOpen={open} />}
       </main>
 
-      {/* ---------------- colophon ---------------- */}
+     {/* ---------------- colophon ---------------- */}
       <footer className="mt-[clamp(3rem,7vw,5.5rem)] border-t border-line">
         <div className="mx-auto max-w-[82rem] px-[clamp(1.1rem,4.5vw,3.25rem)] py-10">
           <div className="flex flex-col md:flex-row md:items-start justify-between gap-8">
