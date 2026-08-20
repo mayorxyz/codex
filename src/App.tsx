@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { articles, enrich, type Article } from "./data/articles";
 import { loadUserEntries, saveUserEntries } from "./lib/store";
 import ArticleView from "./components/ArticleView";
@@ -128,6 +128,13 @@ export default function App() {
 
   /* ---------------- mutations ---------------- */
 
+  /* latest value ref — bulk imports call save() across awaits, where a
+     captured state snapshot would drop earlier files */
+  const userRef = useRef(userEntries);
+  useEffect(() => {
+    userRef.current = userEntries;
+  }, [userEntries]);
+
   const persist = useCallback(
     (next: Article[]) => {
       setUserEntries(next);
@@ -138,9 +145,10 @@ export default function App() {
 
   const saveEntry = useCallback(
     (entry: Article, isNew: boolean, quiet?: boolean) => {
+      const prev = userRef.current;
       const next = isNew
-        ? [...userEntries, entry]
-        : userEntries.map((e) => (e.slug === entry.slug ? entry : e));
+        ? [...prev, entry]
+        : prev.map((e) => (e.slug === entry.slug ? entry : e));
       persist(next);
       if (!quiet) {
         say(
@@ -151,17 +159,17 @@ export default function App() {
         navigate({ view: "article", slug: entry.slug });
       }
     },
-    [userEntries, persist, say, navigate]
+    [persist, say, navigate]
   );
 
   const deleteEntry = useCallback(
     (slug: string) => {
-      persist(userEntries.filter((e) => e.slug !== slug));
+      persist(userRef.current.filter((e) => e.slug !== slug));
       say(`removed ${slug}.md from your shelf`);
       if (route.view === "article" && route.slug === slug) navigate({ view: "library" });
       if (route.view === "composer" && route.slug === slug) navigate({ view: "composer" });
     },
-    [userEntries, persist, say, route, navigate]
+    [persist, say, route, navigate]
   );
 
   const open = useCallback((slug: string) => navigate({ view: "article", slug }), [navigate]);
@@ -231,7 +239,7 @@ export default function App() {
                 );
               })}
 
-              <button onClick={compose} className="btn-primary !py-2 ml-1 sm:ml-2">
+              <button onClick={compose} className="btn-primary py-2! ml-1 sm:ml-2">
                 <span className="text-[14px] leading-none">+</span>
                 <span className="hidden sm:inline">new entry</span>
               </button>

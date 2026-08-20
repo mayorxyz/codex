@@ -422,7 +422,7 @@ export default function Composer({
             {preview.doc ? (
               <div className="preview-scroll">
                 <article className="prose-kb prose-preview">
-                  <h1 className="!mb-2">{title || "Untitled entry"}</h1>
+                  <h1 className="mb-2!">{title || "Untitled entry"}</h1>
                   {description && (
                     <p className="font-body italic !text-soft">{description}</p>
                   )}

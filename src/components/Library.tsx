@@ -41,7 +41,6 @@ export default function Library({
   onDelete: (slug: string) => void;
 }) {
   const tags = useMemo(() => allTags(entries), [entries]);
-  const [confirmSlug, setConfirmSlug] = useState<string | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
   /* "/" shortcut focuses this from anywhere (App switches view first) */
@@ -232,8 +231,6 @@ export default function Library({
             {userSlugs.has(lead.slug) && (
               <DeleteBtn
                 slug={lead.slug}
-                confirm={confirmSlug}
-                setConfirm={setConfirmSlug}
                 onDelete={onDelete}
                 className="top-4 right-4"
               />
@@ -288,8 +285,6 @@ export default function Library({
                   {userSlugs.has(a.slug) && (
                     <DeleteBtn
                       slug={a.slug}
-                      confirm={confirmSlug}
-                      setConfirm={setConfirmSlug}
                       onDelete={onDelete}
                       className="top-3.5 right-3.5"
                     />
@@ -330,14 +325,10 @@ export default function Library({
 
 function DeleteBtn({
   slug,
-  confirm,
-  setConfirm,
   onDelete,
   className,
 }: {
   slug: string;
-  confirm: string | null;
-  setConfirm: (s: string | null) => void;
   onDelete: (slug: string) => void;
   className: string;
 }) {
@@ -362,7 +353,7 @@ function DeleteBtn({
         armed
           ? "border-danger/60 bg-danger/10 text-danger"
           : "border-line bg-surface text-faint hover:text-danger hover:border-danger/50"
-      } ${confirm ? "" : ""}`}
+      }`}
     >
       {armed ? "sure?" : <IconTrash size={12} />}
     </button>
